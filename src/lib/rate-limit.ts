@@ -167,6 +167,16 @@ export const RATE_LIMITS = {
    *  capping a stampede; excess inbounds simply don't get an auto-reply
    *  (they still land in the inbox for a human). */
   aiAutoReplyAccount: { limit: 30, windowMs: 60_000 },
+  /** Public storefront chat, per visitor IP. The page is unauthenticated
+   *  and can run on the operator's shared Gemini key, so this is the
+   *  first line of defence against a single visitor (or bot) burning the
+   *  key. 15/min is comfortable for a real buyer typing questions. */
+  storefrontChatIp: { limit: 15, windowMs: 60_000 },
+  /** Public storefront chat, per account (storefront). Bounds total spend
+   *  a single business's page can drive on the shared key across all its
+   *  visitors at once — e.g. a viral ad. 60/min ≈ four concurrent buyers
+   *  chatting steadily; excess requests get a soft "busy, try again". */
+  storefrontChatAccount: { limit: 60, windowMs: 60_000 },
 } as const;
 
 /** Test-only helper. Clears the in-memory state so unit tests don't
