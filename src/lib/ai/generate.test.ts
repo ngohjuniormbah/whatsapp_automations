@@ -192,3 +192,91 @@ describe('generateReply — Anthropic', () => {
     expect(body.messages).toHaveLength(1)
   })
 })
+
+describe('generateReply — Google (Gemini)', () => {
+  it('calls generateContent with the key header and parses candidate text', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      okResponse({
+        candidates: [{ content: { parts: [{ text: 'Bonjour !' }] } }],
+        usageMetadata: {
+          promptTokenCount: 20,
+          candidatesTokenCount: 4,
+          totalTokenCount: 24,
+        },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await generateReply({
+      config: config({ provider: 'google', model: 'gemini-1.5-flash', apiKey: 'AIza-x' }),
+      systemPrompt: 'sys',
+      messages: [{ role: 'user', content: 'Salut' }],
+    })
+
+    expect(res).toEqual({
+      text: 'Bonjour !',
+      handoff: false,
+      usage: { promptTokens: 20, completionTokens: 4, totalTokens: 24 },
+    })
+    const [url, opts] = fetchMock.mock.calls[0]
+    expect(url).toContain('generativelanguage.googleapis.com')
+    expect(url).toContain('gemini-1.5-flash:generateContent')
+    expect(opts.headers['x-goog-api-key']).toBe('AIza-x')
+    // System prompt goes in system_instruction, not contents.
+    const body = JSON.parse(opts.body)
+    expect(body.system_instruction.parts[0].text).toBe('sys')
+    expect(body.contents[0].role).toBe('user')
+  })
+
+  it('maps the assistant role to "model" and drops a leading assistant turn', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      okResponse({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await generateReply({
+      config: config({ provider: 'google' }),
+      systemPrompt: 'sys',
+      messages: [
+        { role: 'assistant', content: 'Welcome!' },
+        { role: 'user', content: 'Hi' },
+        { role: 'assistant', content: 'How can I help?' },
+      ],
+    })
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body.contents[0].role).toBe('user')
+    expect(body.contents[1].role).toBe('model')
+    expect(body.contents).toHaveLength(2)
+  })
+
+  it('detects handoff in the model output', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        okResponse({ candidates: [{ content: { parts: [{ text: '[[HANDOFF]]' }] } }] }),
+      ),
+    )
+    const res = await generateReply({
+      config: config({ provider: 'google' }),
+      systemPrompt: 'sys',
+      messages: [{ role: 'user', content: 'I want a human' }],
+    })
+    expect(res.handoff).toBe(true)
+    expect(res.text).toBe('')
+  })
+
+  it('throws on an empty response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(okResponse({ candidates: [] })),
+    )
+    await expect(
+      generateReply({
+        config: config({ provider: 'google' }),
+        systemPrompt: 'sys',
+        messages: [{ role: 'user', content: 'Hi' }],
+      }),
+    ).rejects.toBeInstanceOf(AiError)
+  })
+})
