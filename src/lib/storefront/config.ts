@@ -73,6 +73,55 @@ export async function loadPublishedStorefront(
   return mapRow(data as StorefrontRow)
 }
 
+export interface Product {
+  id: string
+  name: string
+  description: string | null
+  priceFcfa: number
+  imageUrl: string | null
+  isAvailable: boolean
+}
+
+interface ProductRow {
+  id: string
+  name: string
+  description: string | null
+  price_fcfa: number
+  image_url: string | null
+  is_available: boolean
+}
+
+/**
+ * Load a storefront's available products for the public catalog + AI
+ * grounding, ordered by the owner's manual sort. Best-effort: returns []
+ * on error so a catalog hiccup never takes down the page or the chat.
+ */
+export async function loadStorefrontProducts(
+  db: SupabaseClient,
+  storefrontId: string,
+  opts: { availableOnly?: boolean } = {},
+): Promise<Product[]> {
+  const { availableOnly = true } = opts
+  let q = db
+    .from('storefront_products')
+    .select('id, name, description, price_fcfa, image_url, is_available')
+    .eq('storefront_id', storefrontId)
+    .order('position', { ascending: true })
+    .order('created_at', { ascending: true })
+  if (availableOnly) q = q.eq('is_available', true)
+
+  const { data, error } = await q
+  if (error || !data) return []
+  return (data as ProductRow[]).map((r) => ({
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    priceFcfa: r.price_fcfa,
+    imageUrl: r.image_url,
+    isAvailable: r.is_available,
+  }))
+}
+
 /** Load the (single) storefront for an account, any publish state. */
 export async function loadStorefrontForAccount(
   db: SupabaseClient,

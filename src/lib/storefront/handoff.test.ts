@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeWaPhone, buildOrderSummary, buildWaMeLink } from './handoff'
+import {
+  normalizeWaPhone,
+  buildOrderSummary,
+  buildWaMeLink,
+  formatFcfa,
+  buildCartOrderSummary,
+} from './handoff'
 
 describe('normalizeWaPhone', () => {
   it('strips +, spaces, dashes and parens', () => {
@@ -61,5 +67,42 @@ describe('buildOrderSummary', () => {
     expect(summary).toContain('msg-9')
     expect(summary).toContain('msg-7')
     expect(summary).not.toContain('msg-6')
+  })
+})
+
+describe('formatFcfa', () => {
+  it('formats whole amounts with grouping and the FCFA suffix', () => {
+    expect(formatFcfa(18000)).toBe('18 000 FCFA')
+    expect(formatFcfa(1000)).toBe('1 000 FCFA')
+    expect(formatFcfa(500)).toBe('500 FCFA')
+  })
+  it('never goes negative and rounds', () => {
+    expect(formatFcfa(-5)).toBe('0 FCFA')
+    expect(formatFcfa(999.6)).toBe('1 000 FCFA')
+  })
+})
+
+describe('buildCartOrderSummary', () => {
+  it('lists items with quantities, line prices and a total', () => {
+    const out = buildCartOrderSummary({
+      businessName: 'Mvog Shop',
+      items: [
+        { name: 'Robe rouge', priceFcfa: 18000, quantity: 2 },
+        { name: 'Sac', priceFcfa: 12000, quantity: 1 },
+      ],
+    })
+    expect(out).toContain('Mvog Shop')
+    expect(out).toContain('2 × Robe rouge — 36 000 FCFA')
+    expect(out).toContain('1 × Sac — 12 000 FCFA')
+    expect(out).toContain('Total: 48 000 FCFA')
+  })
+
+  it('handles a zero (ask) price without a bogus total line', () => {
+    const out = buildCartOrderSummary({
+      businessName: 'Shop',
+      items: [{ name: 'Custom order', priceFcfa: 0, quantity: 1 }],
+    })
+    expect(out).toContain('Custom order — (price to confirm)')
+    expect(out).not.toContain('Total:')
   })
 })

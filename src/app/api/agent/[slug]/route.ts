@@ -26,6 +26,7 @@ import { AiError } from '@/lib/ai/types'
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 import {
   loadPublishedStorefront,
+  loadStorefrontProducts,
   resolvePublicAiConfig,
 } from '@/lib/storefront/config'
 import { buildStorefrontSystemPrompt } from '@/lib/storefront/prompt'
@@ -149,16 +150,15 @@ export async function POST(
       )
     }
 
-    const knowledge = await retrieveKnowledge(
-      db,
-      storefront.accountId,
-      config,
-      latestUserText(messages),
-    )
+    const [knowledge, products] = await Promise.all([
+      retrieveKnowledge(db, storefront.accountId, config, latestUserText(messages)),
+      loadStorefrontProducts(db, storefront.id),
+    ])
 
     const systemPrompt = buildStorefrontSystemPrompt({
       storefront,
       businessContext: config.systemPrompt,
+      products,
       knowledge,
     })
 

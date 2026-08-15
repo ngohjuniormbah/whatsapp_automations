@@ -55,6 +55,20 @@ describe('buildStorefrontSystemPrompt', () => {
     expect(p).toContain('Mobile Money')
   })
 
+  it('embeds the product catalogue with FCFA prices', () => {
+    const p = buildStorefrontSystemPrompt({
+      storefront: storefront(),
+      businessContext: null,
+      products: [
+        { id: '1', name: 'Robe rouge', description: 'Coton', priceFcfa: 18000, imageUrl: null, isAvailable: true },
+        { id: '2', name: 'Sac', description: null, priceFcfa: 0, imageUrl: null, isAvailable: true },
+      ],
+    })
+    expect(p).toContain('Product catalogue')
+    expect(p).toContain('Robe rouge: 18 000 FCFA — Coton')
+    expect(p).toContain('Sac: price on request')
+  })
+
   it('embeds business context and knowledge excerpts', () => {
     const p = buildStorefrontSystemPrompt({
       storefront: storefront(),

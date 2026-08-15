@@ -1,8 +1,11 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/ai/admin-client'
-import { loadPublishedStorefront } from '@/lib/storefront/config'
-import { StorefrontChat } from '@/components/storefront/storefront-chat'
+import {
+  loadPublishedStorefront,
+  loadStorefrontProducts,
+} from '@/lib/storefront/config'
+import { StorefrontApp } from '@/components/storefront/storefront-app'
 
 // The storefront reads a per-request slug against the service role, so it
 // can never be statically generated.
@@ -32,17 +35,21 @@ export default async function StorefrontPage({
   params: Promise<{ shop: string }>
 }) {
   const { shop } = await params
-  const storefront = await loadPublishedStorefront(supabaseAdmin(), shop)
+  const db = supabaseAdmin()
+  const storefront = await loadPublishedStorefront(db, shop)
   if (!storefront) notFound()
 
+  const products = await loadStorefrontProducts(db, storefront.id)
+
   return (
-    <StorefrontChat
+    <StorefrontApp
       slug={storefront.slug}
       displayName={storefront.displayName}
       tagline={storefront.tagline}
       greeting={storefront.greeting}
       ownerWhatsapp={storefront.ownerWhatsapp}
       closeMode={storefront.closeMode}
+      products={products}
     />
   )
 }

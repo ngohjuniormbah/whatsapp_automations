@@ -7,6 +7,52 @@
 
 import type { ChatMessage } from '@/lib/ai/types'
 
+/** Format a whole-FCFA amount with thin spacing, e.g. 18000 → "18 000 FCFA". */
+export function formatFcfa(amount: number): string {
+  const n = Math.max(0, Math.round(amount || 0))
+  return `${n.toLocaleString('fr-FR').replace(/ /g, ' ')} FCFA`
+}
+
+/** One line item in a cart order. */
+export interface OrderItem {
+  name: string
+  priceFcfa: number
+  quantity: number
+}
+
+/**
+ * Build the WhatsApp order text from a cart. Lists each item with
+ * quantity and line price, then the total. Falls back gracefully when a
+ * price is 0 ("ask"). This is what the owner receives when the shopper
+ * taps "Order on WhatsApp".
+ */
+export function buildCartOrderSummary(args: {
+  businessName: string
+  items: OrderItem[]
+  note?: string
+}): string {
+  const { businessName, items, note } = args
+  const lines = items.map((it) => {
+    const qty = Math.max(1, Math.round(it.quantity || 1))
+    const price =
+      it.priceFcfa > 0
+        ? ` — ${formatFcfa(it.priceFcfa * qty)}`
+        : ' — (price to confirm)'
+    return `• ${qty} × ${it.name}${price}`
+  })
+  const total = items.reduce(
+    (sum, it) => sum + Math.max(0, it.priceFcfa) * Math.max(1, Math.round(it.quantity || 1)),
+    0,
+  )
+  const parts = [
+    `Hello ${businessName}! I'd like to order from your online shop:`,
+    lines.join('\n'),
+  ]
+  if (total > 0) parts.push(`Total: ${formatFcfa(total)}`)
+  if (note && note.trim()) parts.push(`Note: ${note.trim()}`)
+  return parts.join('\n\n')
+}
+
 /**
  * Normalize a phone number to the digits wa.me expects: strip the
  * leading '+', spaces, dashes, and parens. Returns '' when nothing

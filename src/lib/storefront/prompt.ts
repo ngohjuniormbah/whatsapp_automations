@@ -1,4 +1,5 @@
-import type { Storefront } from './config'
+import type { Storefront, Product } from './config'
+import { formatFcfa } from './handoff'
 
 // ============================================================
 // System prompt for the public storefront agent — the "AI Digital
@@ -16,10 +17,12 @@ export function buildStorefrontSystemPrompt(args: {
   storefront: Storefront
   /** The account's free-text business context (ai_configs.system_prompt). */
   businessContext: string | null
+  /** The storefront's product catalog (name/price/description). */
+  products?: Product[]
   /** Knowledge-base excerpts retrieved for the current question. */
   knowledge?: string[]
 }): string {
-  const { storefront, businessContext, knowledge } = args
+  const { storefront, businessContext, products, knowledge } = args
   const name = storefront.displayName
 
   const parts: string[] = [
@@ -59,6 +62,24 @@ export function buildStorefrontSystemPrompt(args: {
           ? `Mobile Money instructions:\n${momo}\n`
           : 'If they choose Mobile Money, confirm the order and total in FCFA and tell them the team will send the MoMo details.\n') +
         'Confirm the item and total in FCFA first.',
+    )
+  }
+
+  if (products && products.length > 0) {
+    const list = products
+      .map((p) => {
+        const price = p.priceFcfa > 0 ? formatFcfa(p.priceFcfa) : 'price on request'
+        const desc = p.description?.trim() ? ` — ${p.description.trim()}` : ''
+        return `• ${p.name}: ${price}${desc}`
+      })
+      .join('\n')
+    parts.push(
+      'Product catalogue (these are the real items and prices on this page — use them exactly, ' +
+        'never invent products or prices; if asked for something not listed, say it is not available ' +
+        'and suggest the closest item):\n' +
+        list +
+        '\n\nWhen the customer wants an item, tell them to tap it in the shop to add it to their order, ' +
+        'then tap "Order on WhatsApp" to send the order to us.',
     )
   }
 

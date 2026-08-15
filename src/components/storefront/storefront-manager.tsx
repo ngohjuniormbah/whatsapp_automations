@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { suggestSlug } from '@/lib/storefront/slug'
+import { StorefrontProductsManager } from './storefront-products-manager'
 
 type CloseMode = 'whatsapp' | 'momo' | 'both'
 
@@ -405,6 +406,9 @@ export function StorefrontManager() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Products */}
+      <StorefrontProductsManager />
 
       {/* Leads */}
       <Card>
