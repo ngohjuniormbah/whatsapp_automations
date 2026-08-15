@@ -106,11 +106,18 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 3. Go to **Storefront** (sidebar):
    - Fill in **Business name**, the **link name** (your URL), your
      **WhatsApp number** (international digits, e.g. `2376XXXXXXXX`), a
-     welcome message, and **Mobile Money instructions**.
+     welcome message, and **Mobile Money instructions**. **Save**.
+   - Under **Products**, add what you sell:
+     - **Product (cart)** — a photo, name, price in FCFA. Shoppers add
+       these to a basket and check out.
+     - **Service (booking)** — a name, optional price, and duration.
+       Shoppers pick a date/time to book an appointment.
    - Turn on **Publish**, then **Save**.
    - **Copy** your public link and open it.
-4. You'll see the live AI sales page. Test it: ask about a product — the
-   AI should quote your prices and offer the **Order on WhatsApp** button.
+4. You'll see the live page with **Shop**, **Book**, and **Chat** tabs.
+   Test it: add a product and check out, or book a service — the order/
+   booking arrives on your **WhatsApp** and is saved under
+   **Orders & Bookings** with the customer's contact.
 
 That link is what you put in your Facebook/Instagram ads and WhatsApp
 status. 🎉
