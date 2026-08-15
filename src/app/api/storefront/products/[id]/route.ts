@@ -11,7 +11,7 @@ import { NextResponse } from 'next/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 
 const SELECT =
-  'id, name, description, price_fcfa, image_url, image_path, is_available, position, created_at'
+  'id, name, description, price_fcfa, image_url, image_path, is_available, kind, duration_min, position, created_at'
 
 export async function PATCH(
   request: Request,
@@ -46,6 +46,11 @@ export async function PATCH(
       patch.image_path =
         typeof body.image_path === 'string' ? body.image_path.trim() || null : null
     if ('is_available' in body) patch.is_available = body.is_available === true
+    if ('kind' in body) patch.kind = body.kind === 'service' ? 'service' : 'product'
+    if ('duration_min' in body) {
+      const n = Math.floor(Number(body.duration_min))
+      patch.duration_min = Number.isFinite(n) && n > 0 ? n : null
+    }
     if ('position' in body) {
       const n = Math.floor(Number(body.position))
       if (Number.isFinite(n) && n >= 0) patch.position = n

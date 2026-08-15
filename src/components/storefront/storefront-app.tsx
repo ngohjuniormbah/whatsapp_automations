@@ -6,17 +6,14 @@ import {
   Send,
   MessageCircle,
   ShoppingBag,
-  ShoppingCart,
+  CalendarClock,
+  Clock,
+  X,
+  CheckCircle2,
 } from 'lucide-react'
 import type { ChatMessage } from '@/lib/ai/types'
 import type { Product } from '@/lib/storefront/config'
-import {
-  buildOrderSummary,
-  buildCartOrderSummary,
-  buildWaMeLink,
-  formatFcfa,
-  type OrderItem,
-} from '@/lib/storefront/handoff'
+import { formatFcfa } from '@/lib/storefront/handoff'
 import { StorefrontCatalog } from './storefront-catalog'
 
 export interface StorefrontAppProps {
@@ -32,13 +29,15 @@ export interface StorefrontAppProps {
 interface UiMessage extends ChatMessage {
   id: string
 }
-
-type Tab = 'shop' | 'chat'
+type Tab = 'shop' | 'book' | 'chat'
+type Checkout =
+  | { mode: 'order' }
+  | { mode: 'booking'; service: Product }
+  | null
 
 function newId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
-
 function getSessionId(slug: string): string {
   const key = `sf_session_${slug}`
   try {
@@ -56,16 +55,18 @@ function getSessionId(slug: string): string {
 }
 
 export function StorefrontApp(props: StorefrontAppProps) {
-  const { slug, displayName, tagline, greeting, ownerWhatsapp, closeMode, products } =
-    props
+  const { slug, displayName, tagline, greeting, products } = props
 
-  const hasProducts = products.length > 0
-  const canWhatsApp = closeMode !== 'momo' && Boolean(ownerWhatsapp)
+  const goods = useMemo(() => products.filter((p) => p.kind !== 'service'), [products])
+  const services = useMemo(() => products.filter((p) => p.kind === 'service'), [products])
+  const hasShop = goods.length > 0
+  const hasBook = services.length > 0
 
-  const [tab, setTab] = useState<Tab>(hasProducts ? 'shop' : 'chat')
+  const [tab, setTab] = useState<Tab>(hasShop ? 'shop' : hasBook ? 'book' : 'chat')
   const [cart, setCart] = useState<Record<string, number>>({})
+  const [checkout, setCheckout] = useState<Checkout>(null)
 
-  // Chat state
+  // Chat
   const [messages, setMessages] = useState<UiMessage[]>(() =>
     greeting ? [{ id: newId(), role: 'assistant', content: greeting }] : [],
   )
@@ -78,41 +79,28 @@ export function StorefrontApp(props: StorefrontAppProps) {
   useEffect(() => {
     sessionRef.current = getSessionId(slug)
   }, [slug])
-
   useEffect(() => {
-    if (tab === 'chat') {
+    if (tab === 'chat')
       threadRef.current?.scrollTo({
         top: threadRef.current.scrollHeight,
         behavior: 'smooth',
       })
-    }
   }, [messages, sending, tab])
 
   const productById = useMemo(() => {
     const m = new Map<string, Product>()
-    products.forEach((p) => m.set(p.id, p))
+    goods.forEach((p) => m.set(p.id, p))
     return m
-  }, [products])
+  }, [goods])
 
-  const cartItems: OrderItem[] = useMemo(
-    () =>
-      Object.entries(cart)
-        .map(([id, qty]) => {
-          const p = productById.get(id)
-          if (!p) return null
-          return { name: p.name, priceFcfa: p.priceFcfa, quantity: qty }
-        })
-        .filter((x): x is OrderItem => x !== null),
-    [cart, productById],
-  )
-
-  const cartCount = useMemo(
-    () => Object.values(cart).reduce((a, b) => a + b, 0),
-    [cart],
-  )
+  const cartCount = useMemo(() => Object.values(cart).reduce((a, b) => a + b, 0), [cart])
   const cartTotal = useMemo(
-    () => cartItems.reduce((sum, it) => sum + it.priceFcfa * it.quantity, 0),
-    [cartItems],
+    () =>
+      Object.entries(cart).reduce((sum, [id, qty]) => {
+        const p = productById.get(id)
+        return sum + (p ? p.priceFcfa * qty : 0)
+      }, 0),
+    [cart, productById],
   )
 
   const addToCart = useCallback((id: string) => {
@@ -127,45 +115,6 @@ export function StorefrontApp(props: StorefrontAppProps) {
       return next
     })
   }, [])
-
-  const markHandoff = useCallback(() => {
-    try {
-      const payload = JSON.stringify({ session_id: sessionRef.current, handoff: true })
-      const url = `/api/agent/${encodeURIComponent(slug)}`
-      if (navigator.sendBeacon) {
-        navigator.sendBeacon(url, new Blob([payload], { type: 'application/json' }))
-      } else {
-        void fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: payload,
-          keepalive: true,
-        })
-      }
-    } catch {
-      /* best-effort */
-    }
-  }, [slug])
-
-  const orderCartOnWhatsApp = useCallback(() => {
-    if (cartItems.length === 0) return
-    const text = buildCartOrderSummary({ businessName: displayName, items: cartItems })
-    const link = buildWaMeLink({ ownerWhatsapp, text })
-    if (!link) return
-    markHandoff()
-    window.open(link, '_blank', 'noopener,noreferrer')
-  }, [cartItems, displayName, ownerWhatsapp, markHandoff])
-
-  const orderChatOnWhatsApp = useCallback(() => {
-    const text = buildOrderSummary({
-      businessName: displayName,
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
-    })
-    const link = buildWaMeLink({ ownerWhatsapp, text })
-    if (!link) return
-    markHandoff()
-    window.open(link, '_blank', 'noopener,noreferrer')
-  }, [displayName, messages, ownerWhatsapp, markHandoff])
 
   const send = useCallback(async () => {
     const text = input.trim()
@@ -195,7 +144,7 @@ export function StorefrontApp(props: StorefrontAppProps) {
         { id: newId(), role: 'assistant', content: String(data.reply ?? '') },
       ])
     } catch {
-      setChatError('Network error — please check your connection and try again.')
+      setChatError('Network error — please try again.')
     } finally {
       setSending(false)
     }
@@ -208,41 +157,11 @@ export function StorefrontApp(props: StorefrontAppProps) {
     }
   }
 
-  // Cart order bar — the primary "close" for the shop.
-  const cartBar =
-    cartCount > 0 ? (
-      <div className="shrink-0 border-t border-border bg-card px-3 py-3">
-        {canWhatsApp ? (
-          <button
-            type="button"
-            onClick={orderCartOnWhatsApp}
-            className="flex w-full items-center justify-between gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
-          >
-            <span className="flex items-center gap-2">
-              <MessageCircle className="h-4 w-4" />
-              Order on WhatsApp
-            </span>
-            <span className="tabular-nums">
-              {cartCount} item{cartCount > 1 ? 's' : ''}
-              {cartTotal > 0 ? ` · ${formatFcfa(cartTotal)}` : ''}
-            </span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setTab('chat')}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
-          >
-            <ShoppingCart className="h-4 w-4" />
-            Checkout in Chat ({cartCount})
-          </button>
-        )}
-      </div>
-    ) : null
+  const cartItemsForSubmit = () =>
+    Object.entries(cart).map(([id, quantity]) => ({ id, quantity }))
 
   return (
     <div className="mx-auto flex h-[100dvh] w-full max-w-md flex-col bg-background">
-      {/* Header */}
       <header className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
           <ShoppingBag className="h-5 w-5" />
@@ -252,7 +171,7 @@ export function StorefrontApp(props: StorefrontAppProps) {
             {displayName}
           </h1>
           <p className="truncate text-xs text-muted-foreground">
-            {tagline || 'Online now — shop or ask us anything'}
+            {tagline || 'Online now — shop, book or ask us anything'}
           </p>
         </div>
         <span className="ml-auto flex items-center gap-1.5 text-xs text-emerald-500">
@@ -264,32 +183,106 @@ export function StorefrontApp(props: StorefrontAppProps) {
         </span>
       </header>
 
-      {/* Tabs */}
-      {hasProducts && (
+      {(hasShop || hasBook) && (
         <div className="flex shrink-0 gap-1 border-b border-border bg-card px-3 py-2">
-          <TabButton active={tab === 'shop'} onClick={() => setTab('shop')}>
-            <ShoppingBag className="h-4 w-4" /> Shop
-          </TabButton>
+          {hasShop && (
+            <TabButton active={tab === 'shop'} onClick={() => setTab('shop')}>
+              <ShoppingBag className="h-4 w-4" /> Shop
+              {cartCount > 0 && (
+                <span className="rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                  {cartCount}
+                </span>
+              )}
+            </TabButton>
+          )}
+          {hasBook && (
+            <TabButton active={tab === 'book'} onClick={() => setTab('book')}>
+              <CalendarClock className="h-4 w-4" /> Book
+            </TabButton>
+          )}
           <TabButton active={tab === 'chat'} onClick={() => setTab('chat')}>
             <MessageCircle className="h-4 w-4" /> Chat
           </TabButton>
         </div>
       )}
 
-      {/* Body */}
-      {tab === 'shop' ? (
+      {/* SHOP */}
+      {tab === 'shop' && (
         <>
           <div className="flex flex-1 flex-col overflow-hidden">
             <StorefrontCatalog
-              products={products}
+              products={goods}
               cart={cart}
               onAdd={addToCart}
               onRemove={removeFromCart}
             />
           </div>
-          {cartBar}
+          {cartCount > 0 && (
+            <div className="shrink-0 border-t border-border bg-card px-3 py-3">
+              <button
+                type="button"
+                onClick={() => setCheckout({ mode: 'order' })}
+                className="flex w-full items-center justify-between gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+              >
+                <span className="flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4" /> Checkout on WhatsApp
+                </span>
+                <span className="tabular-nums">
+                  {cartCount} item{cartCount > 1 ? 's' : ''}
+                  {cartTotal > 0 ? ` · ${formatFcfa(cartTotal)}` : ''}
+                </span>
+              </button>
+            </div>
+          )}
         </>
-      ) : (
+      )}
+
+      {/* BOOK */}
+      {tab === 'book' && (
+        <div className="flex-1 space-y-3 overflow-y-auto p-3">
+          {services.map((s) => (
+            <div
+              key={s.id}
+              className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3"
+            >
+              {s.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={s.imageUrl}
+                  alt={s.name}
+                  className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                />
+              ) : (
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <CalendarClock className="h-6 w-6" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">{s.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {s.priceFcfa > 0 ? formatFcfa(s.priceFcfa) : 'Ask us'}
+                  {s.durationMin ? ` · ${s.durationMin} min` : ''}
+                </p>
+                {s.description && (
+                  <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                    {s.description}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setCheckout({ mode: 'booking', service: s })}
+                className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
+              >
+                Book
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* CHAT */}
+      {tab === 'chat' && (
         <>
           <div
             ref={threadRef}
@@ -300,7 +293,7 @@ export function StorefrontApp(props: StorefrontAppProps) {
               <div className="mt-10 flex flex-col items-center gap-2 text-center text-muted-foreground">
                 <MessageCircle className="h-8 w-8" />
                 <p className="text-sm">
-                  Ask about products, prices, or delivery — I&apos;m here to help.
+                  Ask about products, prices, delivery or booking — I&apos;m here to help.
                 </p>
               </div>
             )}
@@ -336,25 +329,6 @@ export function StorefrontApp(props: StorefrontAppProps) {
               </p>
             )}
           </div>
-
-          {/* Cart bar (if items) OR a chat-based WhatsApp order fallback */}
-          {cartCount > 0
-            ? cartBar
-            : canWhatsApp &&
-              messages.some((m) => m.role === 'user') && (
-                <div className="shrink-0 px-4 pb-2">
-                  <button
-                    type="button"
-                    onClick={orderChatOnWhatsApp}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    Order on WhatsApp
-                  </button>
-                </div>
-              )}
-
-          {/* Composer */}
           <div className="flex shrink-0 items-end gap-2 border-t border-border bg-card px-3 py-3">
             <textarea
               value={input}
@@ -384,6 +358,17 @@ export function StorefrontApp(props: StorefrontAppProps) {
       <p className="shrink-0 py-1.5 text-center text-[10px] text-muted-foreground">
         AI assistant · replies may not be perfect
       </p>
+
+      {checkout && (
+        <CheckoutSheet
+          slug={slug}
+          checkout={checkout}
+          sessionId={sessionRef.current}
+          items={cartItemsForSubmit()}
+          onClose={() => setCheckout(null)}
+          onOrderDone={() => setCart({})}
+        />
+      )}
     </div>
   )
 }
@@ -403,12 +388,215 @@ function TabButton({
       onClick={onClick}
       className={
         'flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-colors ' +
-        (active
-          ? 'bg-primary/10 text-primary'
-          : 'text-muted-foreground hover:bg-muted')
+        (active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted')
       }
     >
       {children}
     </button>
+  )
+}
+
+function CheckoutSheet({
+  slug,
+  checkout,
+  sessionId,
+  items,
+  onClose,
+  onOrderDone,
+}: {
+  slug: string
+  checkout: Exclude<Checkout, null>
+  sessionId: string
+  items: { id: string; quantity: number }[]
+  onClose: () => void
+  onOrderDone: () => void
+}) {
+  const isBooking = checkout.mode === 'booking'
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [date, setDate] = useState('')
+  const [time, setTime] = useState('')
+  const [note, setNote] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [doneUrl, setDoneUrl] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
+
+  const submit = async () => {
+    if (phone.trim().replace(/\D/g, '').length < 6) {
+      setError('Please enter a valid phone number so we can reach you.')
+      return
+    }
+    if (isBooking && !date) {
+      setError('Please pick a date.')
+      return
+    }
+    setSubmitting(true)
+    setError(null)
+    try {
+      const payload: Record<string, unknown> = {
+        session_id: sessionId,
+        kind: checkout.mode,
+        customer_name: name,
+        customer_phone: phone,
+        note,
+      }
+      if (isBooking) {
+        payload.service_id = checkout.service.id
+        payload.preferred_time = [date, time].filter(Boolean).join(' ')
+      } else {
+        payload.items = items
+      }
+      const res = await fetch(`/api/agent/${encodeURIComponent(slug)}/order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(data.error ?? 'Could not send your request. Please try again.')
+        return
+      }
+      setDone(true)
+      setDoneUrl(data.whatsapp_url ?? null)
+      if (!isBooking) onOrderDone()
+      if (data.whatsapp_url) window.open(data.whatsapp_url, '_blank', 'noopener,noreferrer')
+    } catch {
+      setError('Network error — please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+      <div className="w-full max-w-md rounded-t-2xl border-t border-border bg-card p-4 pb-6">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-foreground">
+            {done
+              ? 'Request sent'
+              : isBooking
+                ? `Book: ${checkout.service.name}`
+                : 'Complete your order'}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {done ? (
+          <div className="flex flex-col items-center gap-3 py-4 text-center">
+            <CheckCircle2 className="h-10 w-10 text-emerald-500" />
+            <p className="text-sm text-foreground">
+              {isBooking
+                ? "Your booking request was sent. We'll confirm your time on WhatsApp."
+                : "Your order was sent. We'll confirm on WhatsApp."}
+            </p>
+            {doneUrl && (
+              <a
+                href={doneUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white"
+              >
+                <MessageCircle className="h-4 w-4" /> Open WhatsApp
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              Done
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Your name (optional)
+              </label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Marie"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Phone / WhatsApp number
+              </label>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                inputMode="tel"
+                placeholder="6XX XXX XXX"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+              />
+            </div>
+            {isBooking && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Date</label>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                    <Clock className="h-3 w-3" /> Time
+                  </label>
+                  <input
+                    type="time"
+                    value={time}
+                    onChange={(e) => setTime(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Note (optional)
+              </label>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                placeholder={isBooking ? 'Anything we should know?' : 'Delivery address, colour, size…'}
+                className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+              />
+            </div>
+            {error && (
+              <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {error}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={submit}
+              disabled={submitting}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <MessageCircle className="h-4 w-4" />
+              )}
+              {isBooking ? 'Send booking request' : 'Send order on WhatsApp'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

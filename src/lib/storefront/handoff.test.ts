@@ -5,6 +5,7 @@ import {
   buildWaMeLink,
   formatFcfa,
   buildCartOrderSummary,
+  buildBookingSummary,
 } from './handoff'
 
 describe('normalizeWaPhone', () => {
@@ -104,5 +105,41 @@ describe('buildCartOrderSummary', () => {
     })
     expect(out).toContain('Custom order — (price to confirm)')
     expect(out).not.toContain('Total:')
+  })
+
+  it('includes the customer contact line when provided', () => {
+    const out = buildCartOrderSummary({
+      businessName: 'Shop',
+      items: [{ name: 'Sac', priceFcfa: 12000, quantity: 1 }],
+      customerName: 'Marie',
+      customerPhone: '677000111',
+    })
+    expect(out).toContain('From: Marie (677000111)')
+  })
+})
+
+describe('buildBookingSummary', () => {
+  it('formats a booking with service, time and contact', () => {
+    const out = buildBookingSummary({
+      businessName: 'Salon Belle',
+      serviceName: 'Coupe femme',
+      when: '2026-08-20 14:30',
+      customerName: 'Aïcha',
+      customerPhone: '699000222',
+      priceFcfa: 5000,
+    })
+    expect(out).toContain('Salon Belle')
+    expect(out).toContain('Coupe femme — 5 000 FCFA')
+    expect(out).toContain('2026-08-20 14:30')
+    expect(out).toContain('From: Aïcha (699000222)')
+  })
+
+  it('handles a missing time gracefully', () => {
+    const out = buildBookingSummary({
+      businessName: 'Salon',
+      serviceName: 'Manucure',
+      when: '',
+    })
+    expect(out).toContain('please suggest a time')
   })
 })

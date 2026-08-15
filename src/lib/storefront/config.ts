@@ -73,6 +73,8 @@ export async function loadPublishedStorefront(
   return mapRow(data as StorefrontRow)
 }
 
+export type ProductKind = 'product' | 'service'
+
 export interface Product {
   id: string
   name: string
@@ -80,6 +82,8 @@ export interface Product {
   priceFcfa: number
   imageUrl: string | null
   isAvailable: boolean
+  kind: ProductKind
+  durationMin: number | null
 }
 
 interface ProductRow {
@@ -89,6 +93,8 @@ interface ProductRow {
   price_fcfa: number
   image_url: string | null
   is_available: boolean
+  kind: ProductKind
+  duration_min: number | null
 }
 
 /**
@@ -104,7 +110,9 @@ export async function loadStorefrontProducts(
   const { availableOnly = true } = opts
   let q = db
     .from('storefront_products')
-    .select('id, name, description, price_fcfa, image_url, is_available')
+    .select(
+      'id, name, description, price_fcfa, image_url, is_available, kind, duration_min',
+    )
     .eq('storefront_id', storefrontId)
     .order('position', { ascending: true })
     .order('created_at', { ascending: true })
@@ -119,6 +127,8 @@ export async function loadStorefrontProducts(
     priceFcfa: r.price_fcfa,
     imageUrl: r.image_url,
     isAvailable: r.is_available,
+    kind: r.kind ?? 'product',
+    durationMin: r.duration_min,
   }))
 }
 

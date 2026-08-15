@@ -60,13 +60,26 @@ describe('buildStorefrontSystemPrompt', () => {
       storefront: storefront(),
       businessContext: null,
       products: [
-        { id: '1', name: 'Robe rouge', description: 'Coton', priceFcfa: 18000, imageUrl: null, isAvailable: true },
-        { id: '2', name: 'Sac', description: null, priceFcfa: 0, imageUrl: null, isAvailable: true },
+        { id: '1', name: 'Robe rouge', description: 'Coton', priceFcfa: 18000, imageUrl: null, isAvailable: true, kind: 'product', durationMin: null },
+        { id: '2', name: 'Sac', description: null, priceFcfa: 0, imageUrl: null, isAvailable: true, kind: 'product', durationMin: null },
       ],
     })
     expect(p).toContain('Product catalogue')
     expect(p).toContain('Robe rouge: 18 000 FCFA — Coton')
     expect(p).toContain('Sac: price on request')
+  })
+
+  it('lists bookable services separately with duration', () => {
+    const p = buildStorefrontSystemPrompt({
+      storefront: storefront(),
+      businessContext: null,
+      products: [
+        { id: 's1', name: 'Coupe femme', description: null, priceFcfa: 5000, imageUrl: null, isAvailable: true, kind: 'service', durationMin: 45 },
+      ],
+    })
+    expect(p).toContain('Services you can book')
+    expect(p).toContain('Coupe femme: 5 000 FCFA (45 min)')
+    expect(p).toContain('Book tab')
   })
 
   it('embeds business context and knowledge excerpts', () => {

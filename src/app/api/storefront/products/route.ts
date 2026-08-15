@@ -17,7 +17,7 @@ import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit
 import { loadStorefrontForAccount } from '@/lib/storefront/config'
 
 const SELECT =
-  'id, name, description, price_fcfa, image_url, image_path, is_available, position, created_at'
+  'id, name, description, price_fcfa, image_url, image_path, is_available, kind, duration_min, position, created_at'
 
 function bad(message: string) {
   return NextResponse.json({ error: message }, { status: 400 })
@@ -82,6 +82,13 @@ export async function POST(request: Request) {
       .maybeSingle()
     const position = (last?.position ?? -1) + 1
 
+    const kind = body.kind === 'service' ? 'service' : 'product'
+    const durationRaw = Math.floor(Number(body.duration_min))
+    const durationMin =
+      kind === 'service' && Number.isFinite(durationRaw) && durationRaw > 0
+        ? durationRaw
+        : null
+
     const { data, error } = await supabase
       .from('storefront_products')
       .insert({
@@ -100,6 +107,8 @@ export async function POST(request: Request) {
             ? body.image_path.trim() || null
             : null,
         is_available: body.is_available !== false,
+        kind,
+        duration_min: durationMin,
         position,
       })
       .select(SELECT)

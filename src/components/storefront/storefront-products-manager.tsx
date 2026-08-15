@@ -35,6 +35,8 @@ import { formatFcfa } from '@/lib/storefront/handoff'
 
 const BUCKET = 'storefront-products'
 
+type Kind = 'product' | 'service'
+
 interface Product {
   id: string
   name: string
@@ -43,12 +45,16 @@ interface Product {
   image_url: string | null
   image_path: string | null
   is_available: boolean
+  kind: Kind
+  duration_min: number | null
 }
 
 interface Draft {
   id: string | null
+  kind: Kind
   name: string
   price: string
+  duration: string
   description: string
   image_url: string | null
   image_path: string | null
@@ -57,8 +63,10 @@ interface Draft {
 
 const EMPTY: Draft = {
   id: null,
+  kind: 'product',
   name: '',
   price: '',
+  duration: '',
   description: '',
   image_url: null,
   image_path: null,
@@ -99,8 +107,10 @@ export function StorefrontProductsManager() {
   const startEdit = (p: Product) =>
     setDraft({
       id: p.id,
+      kind: p.kind ?? 'product',
       name: p.name,
       price: p.price_fcfa ? String(p.price_fcfa) : '',
+      duration: p.duration_min ? String(p.duration_min) : '',
       description: p.description ?? '',
       image_url: p.image_url,
       image_path: p.image_path,
@@ -142,8 +152,13 @@ export function StorefrontProductsManager() {
     }
     setSaving(true)
     const payload = {
+      kind: draft.kind,
       name: draft.name.trim(),
       price_fcfa: Math.max(0, Math.floor(Number(draft.price) || 0)),
+      duration_min:
+        draft.kind === 'service'
+          ? Math.max(0, Math.floor(Number(draft.duration) || 0)) || null
+          : null,
       description: draft.description.trim() || null,
       image_url: draft.image_url,
       image_path: draft.image_path,
@@ -231,8 +246,9 @@ export function StorefrontProductsManager() {
           </span>
         </CardTitle>
         <CardDescription>
-          Photos and prices shoppers browse on your page. The AI also uses these to
-          answer &quot;how much&quot; and &quot;do you have…&quot; questions.
+          Add <strong>products</strong> shoppers add to a cart, or{' '}
+          <strong>services</strong> they can book an appointment for. The AI uses
+          these to answer &quot;how much&quot; and &quot;do you have…&quot; questions.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -266,7 +282,11 @@ export function StorefrontProductsManager() {
                     {p.name}
                   </p>
                   <p className="text-xs text-muted-foreground">
+                    {p.kind === 'service' ? 'Service · ' : ''}
                     {p.price_fcfa > 0 ? formatFcfa(p.price_fcfa) : 'Ask us'}
+                    {p.kind === 'service' && p.duration_min
+                      ? ` · ${p.duration_min} min`
+                      : ''}
                     {!p.is_available && ' · hidden'}
                   </p>
                 </div>
@@ -305,11 +325,39 @@ export function StorefrontProductsManager() {
           <div className="space-y-3 rounded-lg border border-border p-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">
-                {draft.id ? 'Edit product' : 'New product'}
+                {draft.id ? 'Edit item' : 'New item'}
               </p>
               <Button variant="ghost" size="icon-sm" onClick={cancel} aria-label="Close">
                 <X className="h-4 w-4" />
               </Button>
+            </div>
+
+            {/* Type toggle */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setDraft({ ...draft, kind: 'product' })}
+                className={
+                  'rounded-lg border py-2 text-sm font-medium transition-colors ' +
+                  (draft.kind === 'product'
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground hover:bg-muted')
+                }
+              >
+                Product (cart)
+              </button>
+              <button
+                type="button"
+                onClick={() => setDraft({ ...draft, kind: 'service' })}
+                className={
+                  'rounded-lg border py-2 text-sm font-medium transition-colors ' +
+                  (draft.kind === 'service'
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground hover:bg-muted')
+                }
+              >
+                Service (booking)
+              </button>
             </div>
 
             <div className="flex items-start gap-3">
@@ -371,7 +419,9 @@ export function StorefrontProductsManager() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="p-price">Price (FCFA)</Label>
+                <Label htmlFor="p-price">
+                  Price (FCFA){draft.kind === 'service' ? ' — optional' : ''}
+                </Label>
                 <Input
                   id="p-price"
                   type="number"
@@ -382,6 +432,20 @@ export function StorefrontProductsManager() {
                 />
               </div>
             </div>
+
+            {draft.kind === 'service' && (
+              <div className="space-y-1.5">
+                <Label htmlFor="p-duration">Duration in minutes (optional)</Label>
+                <Input
+                  id="p-duration"
+                  type="number"
+                  min={0}
+                  value={draft.duration}
+                  onChange={(e) => setDraft({ ...draft, duration: e.target.value })}
+                  placeholder="30"
+                />
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label htmlFor="p-desc">Description (optional)</Label>
@@ -408,13 +472,13 @@ export function StorefrontProductsManager() {
               </Button>
               <Button onClick={save} disabled={saving || uploading}>
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {draft.id ? 'Save changes' : 'Add product'}
+                {draft.id ? 'Save changes' : `Add ${draft.kind === 'service' ? 'service' : 'product'}`}
               </Button>
             </div>
           </div>
         ) : (
           <Button variant="outline" onClick={startAdd} disabled={!canEdit}>
-            <Plus className="mr-2 h-4 w-4" /> Add product
+            <Plus className="mr-2 h-4 w-4" /> Add product or service
           </Button>
         )}
       </CardContent>

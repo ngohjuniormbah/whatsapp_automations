@@ -29,9 +29,11 @@ export interface OrderItem {
 export function buildCartOrderSummary(args: {
   businessName: string
   items: OrderItem[]
+  customerName?: string
+  customerPhone?: string
   note?: string
 }): string {
-  const { businessName, items, note } = args
+  const { businessName, items, customerName, customerPhone, note } = args
   const lines = items.map((it) => {
     const qty = Math.max(1, Math.round(it.quantity || 1))
     const price =
@@ -49,8 +51,47 @@ export function buildCartOrderSummary(args: {
     lines.join('\n'),
   ]
   if (total > 0) parts.push(`Total: ${formatFcfa(total)}`)
+  const who = contactLine(customerName, customerPhone)
+  if (who) parts.push(who)
   if (note && note.trim()) parts.push(`Note: ${note.trim()}`)
   return parts.join('\n\n')
+}
+
+/** "From: Name (phone)" — omitted entirely when neither is provided. */
+function contactLine(name?: string, phone?: string): string {
+  const n = name?.trim()
+  const p = phone?.trim()
+  if (n && p) return `From: ${n} (${p})`
+  if (n) return `From: ${n}`
+  if (p) return `From: ${p}`
+  return ''
+}
+
+/**
+ * Build the WhatsApp text for a service booking / reservation request.
+ * The owner confirms the slot back on WhatsApp.
+ */
+export function buildBookingSummary(args: {
+  businessName: string
+  serviceName: string
+  when: string
+  customerName?: string
+  customerPhone?: string
+  priceFcfa?: number
+  note?: string
+}): string {
+  const { businessName, serviceName, when, customerName, customerPhone, priceFcfa, note } =
+    args
+  const parts = [
+    `Hello ${businessName}! I'd like to book:`,
+    `• Service: ${serviceName}` +
+      (priceFcfa && priceFcfa > 0 ? ` — ${formatFcfa(priceFcfa)}` : ''),
+    `• Preferred time: ${when || '(please suggest a time)'}`,
+  ]
+  const who = contactLine(customerName, customerPhone)
+  if (who) parts.push(who)
+  if (note && note.trim()) parts.push(`Note: ${note.trim()}`)
+  return parts.join('\n')
 }
 
 /**

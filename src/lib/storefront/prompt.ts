@@ -65,22 +65,38 @@ export function buildStorefrontSystemPrompt(args: {
     )
   }
 
+  const fmt = (p: Product) => {
+    const price = p.priceFcfa > 0 ? formatFcfa(p.priceFcfa) : 'price on request'
+    const dur = p.durationMin ? ` (${p.durationMin} min)` : ''
+    const desc = p.description?.trim() ? ` — ${p.description.trim()}` : ''
+    return `• ${p.name}: ${price}${dur}${desc}`
+  }
+
   if (products && products.length > 0) {
-    const list = products
-      .map((p) => {
-        const price = p.priceFcfa > 0 ? formatFcfa(p.priceFcfa) : 'price on request'
-        const desc = p.description?.trim() ? ` — ${p.description.trim()}` : ''
-        return `• ${p.name}: ${price}${desc}`
-      })
-      .join('\n')
-    parts.push(
-      'Product catalogue (these are the real items and prices on this page — use them exactly, ' +
-        'never invent products or prices; if asked for something not listed, say it is not available ' +
-        'and suggest the closest item):\n' +
-        list +
-        '\n\nWhen the customer wants an item, tell them to tap it in the shop to add it to their order, ' +
-        'then tap "Order on WhatsApp" to send the order to us.',
-    )
+    const goods = products.filter((p) => p.kind !== 'service')
+    const services = products.filter((p) => p.kind === 'service')
+
+    if (goods.length > 0) {
+      parts.push(
+        'Product catalogue (real items and prices on this page — use them exactly, never invent ' +
+          'products or prices; if asked for something not listed, say it is not available and suggest ' +
+          'the closest item):\n' +
+          goods.map(fmt).join('\n') +
+          '\n\nWhen the customer wants an item, tell them to open the Shop tab, tap it to add it to their ' +
+          'basket, then tap "Order on WhatsApp" to send the order to us.',
+      )
+    }
+
+    if (services.length > 0) {
+      parts.push(
+        'Services you can book (appointments / reservations):\n' +
+          services.map(fmt).join('\n') +
+          '\n\nWhen the customer wants to book, tell them to open the Book tab, choose the service, pick a ' +
+          'date and time and leave their name and phone — the request is sent to us on WhatsApp and we ' +
+          'confirm the slot. Help them decide, but do NOT promise a specific slot is confirmed; only the ' +
+          'business confirms availability.',
+      )
+    }
   }
 
   if (businessContext && businessContext.trim()) {
