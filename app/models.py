@@ -28,8 +28,15 @@ from sqlmodel import Field, SQLModel
 
 
 def utcnow() -> datetime:
-    """Timezone-aware UTC now — all timestamps are stored in UTC."""
-    return datetime.now(timezone.utc)
+    """Naive UTC 'now'.
+
+    The app uses naive UTC everywhere so datetime comparisons never mix
+    aware/naive (a common footgun). Full timezone handling — including the
+    merchant's local WAT wall-clock for availability — is deferred; for a
+    single-country (Cameroon, UTC+1, no DST) MVP this is acceptable and
+    should be revisited before multi-region use.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 # --------------------------------------------------------------------------

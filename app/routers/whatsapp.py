@@ -28,13 +28,15 @@ from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.background import BackgroundTask
 from twilio.request_validator import RequestValidator
 from twilio.twiml.messaging_response import MessagingResponse
 
 from app import crud, models
 from app.config import settings
 from app.db import get_session
-from app.models import utcnow
+from app.models import ConversationState, utcnow
+from app.pipeline import process_and_reply
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -82,14 +84,20 @@ async def whatsapp_webhook(
 
     conv = await crud.get_or_create_conversation(session, merchant.id, from_number)
     await crud.add_message(session, conv.id, models.MessageRole.customer.value, body)
-
-    # Phase 2: hardcoded echo. Replaced by the agent in Phase 3.
-    reply = f"Hi 👋 (echo from {merchant.name}): you said “{body}”"
-
-    twiml = MessagingResponse()
-    twiml.message(reply)
-    await crud.add_message(session, conv.id, models.MessageRole.agent.value, reply)
-
     conv.updated_at = utcnow()
     await session.commit()
-    return _xml(twiml)
+
+    # Kill switch: master toggle off, or a human is handling this thread.
+    # Store the inbound (done above) and stop — no auto-reply.
+    if not merchant.bot_enabled or conv.state == ConversationState.paused_for_human.value:
+        logger.info(
+            "Bot paused for merchant=%s conv=%s (bot_enabled=%s, state=%s) — stored only.",
+            merchant.id, conv.id, merchant.bot_enabled, conv.state,
+        )
+        return _xml(MessagingResponse())
+
+    # Return 200 immediately; the agent thinks + replies via the REST API
+    # in a background task so we never risk Twilio's webhook timeout.
+    empty = _xml(MessagingResponse())
+    empty.background = BackgroundTask(process_and_reply, merchant.id, conv.id, from_number)
+    return empty

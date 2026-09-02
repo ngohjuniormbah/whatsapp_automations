@@ -15,15 +15,18 @@ from sqlalchemy import text
 from app.config import settings
 from app.db import engine, init_db
 from app.routers import whatsapp
+from app.scheduler import shutdown_scheduler, start_scheduler
 from app.seed import seed_if_empty
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create tables, then seed a demo merchant if the DB is empty.
+    # Create tables, seed a demo merchant if empty, start the scheduler.
     await init_db()
     await seed_if_empty()
+    start_scheduler()
     yield
+    shutdown_scheduler()
     await engine.dispose()
 
 

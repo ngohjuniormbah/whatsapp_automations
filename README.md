@@ -96,9 +96,53 @@ by (merchant, `From`), stores the inbound message, and echoes a reply.
 > so your test routes to **Chez Amélie**. In production each merchant has
 > its own number and `To` disambiguates the tenant.
 
+## Phases 3–5 — the agent, tools, and scheduler
+
+- **Phase 3 — Agent (Pydantic AI + OpenRouter).** `app/agent.py` builds one
+  agent; `app/prompts.py` assembles a per-merchant system prompt (base role
+  + `system_prompt_extra` + compact catalog/services + running summary +
+  a short window of recent turns — never the full transcript). The model
+  is `OPENROUTER_MODEL` (default `qwen/qwen3-30b-a3b`), swappable via env.
+  Replies go out via the Twilio REST API from a background task, so the
+  webhook returns instantly (no timeout risk).
+- **Phase 4 — Tools + state machine.** Typed tools: `get_catalog`,
+  `get_services`, `check_availability`, `capture_order`, `book_appointment`,
+  `escalate_to_human`. Order prices are re-priced from the catalog (the LLM
+  is never trusted on money). Conversation `state` moves
+  browsing → ordering / booking / paused_for_human. **Kill switch:** if
+  `merchant.bot_enabled` is false OR the conversation is
+  `paused_for_human`, the inbound is stored and the agent stays silent.
+- **Phase 5 — Scheduler.** `app/scheduler.py` runs an APScheduler job every
+  60s that sends due `scheduled_message` rows (e.g. appointment reminders
+  created by `book_appointment`). ⚠️ Business-initiated messages **outside
+  the 24h window require an approved WhatsApp template** — that path is
+  stubbed and clearly marked in the code.
+
+### How the loop works
+```
+Twilio POST /webhook/whatsapp
+  → validate signature → parse form
+  → resolve merchant by To, conversation by (merchant, From)
+  → store inbound message
+  → if bot disabled OR paused_for_human: stop (store only)
+  → else: return 200 now; in the background run the agent (tools + state),
+    send the reply via Twilio REST, persist it
+```
+
 ## Roadmap
-1. **Skeleton + data model** ✅
-2. **Twilio inbound webhook** ✅ ← you are here
-3. Agent, single message (Pydantic AI + OpenRouter, per-merchant prompt)
-4. Tools + state machine (order, booking, availability, escalate; kill switch)
-5. APScheduler worker for scheduled/reminder messages
+1. Skeleton + data model ✅
+2. Twilio inbound webhook ✅
+3. Agent (single message) ✅
+4. Tools + state machine ✅
+5. Scheduler ✅  — **feature-complete for v1**
+
+## Notes / what I'd harden before scale
+- **Timezones:** the app uses naive UTC everywhere to avoid aware/naive
+  comparison bugs. Availability is treated as wall-clock; revisit real TZ
+  handling (WAT) before multi-region use.
+- **Migrations:** schema is created with `create_all`. Add **Alembic**
+  before altering a live schema.
+- **Reminders outside 24h:** need an approved WhatsApp template (flagged
+  in `app/scheduler.py`).
+- **Background tasks** are in-process; for real load move agent runs to a
+  worker queue (e.g. Arq/Celery) so a restart can't drop an in-flight reply.
