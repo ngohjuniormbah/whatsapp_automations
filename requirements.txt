@@ -1,0 +1,9 @@
+# Phase 1 dependencies. Later phases add: pydantic-ai (agent), twilio
+# (WhatsApp), apscheduler (scheduler). Nothing beyond the agreed stack is
+# pulled in without sign-off.
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+sqlmodel>=0.0.22
+asyncpg>=0.29           # async Postgres driver for SQLAlchemy
+greenlet>=3.0           # required by SQLAlchemy's async engine
+pydantic-settings>=2.4,<3.0
