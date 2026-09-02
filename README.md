@@ -61,9 +61,44 @@ app/
 docker-compose.yml
 ```
 
+## Phase 2 — Twilio inbound webhook
+
+Endpoint: `POST /webhook/whatsapp`. It validates `X-Twilio-Signature`,
+parses the form body, resolves the merchant by `To` and the conversation
+by (merchant, `From`), stores the inbound message, and echoes a reply.
+
+### Test it with your own phone (Twilio Sandbox + ngrok)
+
+1. **Run the app** (see above) so it's live on `localhost:8000`.
+2. **Expose it** with ngrok:
+   ```bash
+   ngrok http 8000
+   ```
+   Copy the `https://<id>.ngrok-free.app` URL. Put it in `.env` as
+   `PUBLIC_BASE_URL` (the signature check rebuilds the signed URL from
+   it), and restart the app.
+3. **Twilio Console → Messaging → Try it out → WhatsApp Sandbox:**
+   - Join the sandbox: send `join <your-sandbox-word>` from WhatsApp to
+     the sandbox number (`+1 415 523 8886`).
+   - Under **Sandbox settings**, set **"When a message comes in"** to
+     `https://<id>.ngrok-free.app/webhook/whatsapp` (**HTTP POST**).
+4. Put your Twilio **Auth Token** in `.env` as `TWILIO_AUTH_TOKEN` so
+   signature validation is enforced (with it blank, validation is skipped
+   for local testing). Restart.
+5. **Message the sandbox number from your phone** — e.g. *"c'est combien
+   la robe rouge?"*. You'll get the echo back, and the message is stored:
+   ```bash
+   docker exec -it wa_agent_db psql -U postgres -d wa_agent \
+     -c "select role, body from message order by created_at;"
+   ```
+
+> The seeded merchant's `whatsapp_number` is the shared sandbox number,
+> so your test routes to **Chez Amélie**. In production each merchant has
+> its own number and `To` disambiguates the tenant.
+
 ## Roadmap
-1. **Skeleton + data model** ← you are here
-2. Twilio inbound webhook (signature-validated, echo reply)
+1. **Skeleton + data model** ✅
+2. **Twilio inbound webhook** ✅ ← you are here
 3. Agent, single message (Pydantic AI + OpenRouter, per-merchant prompt)
 4. Tools + state machine (order, booking, availability, escalate; kill switch)
 5. APScheduler worker for scheduled/reminder messages

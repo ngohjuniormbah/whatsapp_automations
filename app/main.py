@@ -14,6 +14,7 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.db import engine, init_db
+from app.routers import whatsapp
 from app.seed import seed_if_empty
 
 
@@ -27,6 +28,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="WhatsApp AI Agent", version="0.1.0", lifespan=lifespan)
+app.include_router(whatsapp.router)
 
 
 @app.get("/health")
