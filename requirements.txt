@@ -1,0 +1,12 @@
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+sqlmodel>=0.0.22
+asyncpg>=0.29                 # async Postgres driver for SQLAlchemy
+greenlet>=3.0                 # required by SQLAlchemy's async engine
+pydantic-settings>=2.4,<3.0
+twilio>=9.0,<10.0            # X-Twilio-Signature validation + REST send + TwiML
+pydantic-ai-slim[openai]>=2.0 # the agent + tool calling (OpenRouter via OpenAI-compat)
+apscheduler>=3.10,<4.0        # scheduled/reminder message worker
+
+# Form bodies are parsed manually (urllib) so python-multipart is NOT
+# needed for the Twilio webhook.

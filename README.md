@@ -1,176 +1,148 @@
-# wacrm — CRM Template for WhatsApp
+# WhatsApp AI Agent — backend engine
 
-> Self-hostable CRM template for WhatsApp® — shared inbox, contacts,
-> sales pipelines, broadcasts, and no-code automations. Fork it, brand
-> it, host it.
+Multi-tenant WhatsApp AI agent for small businesses in Cameroon. One
+agent, connected to many merchants' WhatsApp numbers via Twilio. It
+answers from each merchant's catalog/services and drives to an **order**
+or an **appointment**, in French, English, and Cameroonian Pidgin —
+escalating to the human merchant when it shouldn't handle something.
 
-<p align="center">
-  <a href="https://www.hostinger.com/web-apps-hosting?REFERRALCODE=WACRMHOST">
-    <img src="./.github/assets/hostinger-deploy.png" alt="Ship your Node.js app in one click — Deploy to Hostinger" width="900">
-  </a>
-</p>
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-violet.svg)](./LICENSE)
-[![CI](https://github.com/ArnasDon/wacrm/actions/workflows/ci.yml/badge.svg)](https://github.com/ArnasDon/wacrm/actions/workflows/ci.yml)
-[![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs)](https://nextjs.org)
-[![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3ecf8e?logo=supabase)](https://supabase.com)
-[![Stars](https://img.shields.io/github/stars/ArnasDon/wacrm?style=social)](https://github.com/ArnasDon/wacrm/stargazers)
-
-The marketing site and self-host docs live in a separate repo:
-[ArnasDon/wacrm-site](https://github.com/ArnasDon/wacrm-site)
-([wacrm.tech](https://wacrm.tech)). This repo is the product —
-clone or fork it to run your own CRM.
-
-## What you get out of the box
-
-- **Shared inbox** on the official WhatsApp Business API — multiple
-  agents working one number, per-conversation assignment, status, and
-  notes.
-- **Contacts + tags + custom fields**, CSV import, deduplication.
-- **Sales pipelines** (Kanban) with deals linked to conversations.
-- **Broadcasts** with Meta-approved templates, delivery + read
-  tracking, per-recipient variable substitution.
-- **No-code automations** — triggers on inbound messages, new
-  contacts, keywords, or schedule; conditional branches, waits,
-  tags, webhooks. Visual builder.
-- **AI reply assistant** — bring your own OpenAI, Anthropic, or
-  Google (Gemini) key (stored encrypted; no per-seat AI fee, your
-  data stays yours).
-  One-click AI-drafted replies in the inbox, plus an optional
-  auto-reply bot with a per-conversation cap and clean human handoff.
-  Add a **knowledge base** (FAQs, policies, product docs) and it
-  answers from your own content — hybrid retrieval (Postgres full-text,
-  or semantic pgvector when an embeddings key is set).
-- **Real-time dashboard** — response times, daily volume, pipeline
-  value, cross-module activity feed.
-- **Team accounts** — invite teammates by link, role-based access
-  (owner / admin / agent / viewer), ownership transfer. Every install
-  is account-scoped, so one shared inbox can be staffed by a whole
-  team. Solo use stays single-user with zero setup.
-- **Account management** — email, password, avatar, global sign-out.
-- **Public REST API** (`/api/v1`) with scoped, revocable API keys —
-  build your own automations on top of your CRM. See
-  [docs/public-api.md](./docs/public-api.md).
-- **MCP server** — drive your CRM from Claude, Cursor, and other AI
-  assistants over the [Model Context Protocol](https://modelcontextprotocol.io).
-  Read-only by default, opt-in writes. See [docs/mcp.md](./docs/mcp.md)
-  (server in [`mcp-server/`](./mcp-server)).
-
-## Why fork this?
-
-This is a **template**, not a product. Forking means you get:
-
-- **Full ownership** — your code, your Supabase project, your domain,
-  your data. No SaaS lock-in, no seat pricing, no trust dance.
-- **Full customisation** — add the fields your team needs, remove the
-  modules you don't, redesign anything. The stack is boring on
-  purpose (Next.js + Supabase + Tailwind) so the learning curve is
-  short.
-- **Zero ops to start** — [Hostinger](https://www.hostinger.com/web-apps-hosting?REFERRALCODE=WACRMHOST)
-  Managed Node.js deploys a fork in a few clicks. No Docker, no
-  Kubernetes, no infra team needed.
-  ([See below ↓](#-deploy-on-hostinger-recommended))
-- **Real security primitives** — token encryption (AES-256-GCM), RLS
-  on every table, HMAC-verified webhooks, CSP, rate limiting, CI
-  typecheck/build on every PR.
-
-Not a framework. Not an SDK. A concrete, working CRM you can stand up
-in an afternoon and make yours.
-
-## Quick start
-
-```bash
-# Fork on GitHub first: https://github.com/ArnasDon/wacrm → Fork
-git clone https://github.com/<your-username>/wacrm.git
-cd wacrm
-npm install
-cp .env.local.example .env.local   # fill in Supabase + Meta creds
-npm run dev
-```
-
-Open <http://localhost:3000>. You'll be redirected to `/login` (or
-`/dashboard` if already signed in).
-
-Prefer containers? See [docs/docker.md](./docs/docker.md) for the
-Dockerfile + Docker Compose setup.
-
-## 🚀 Deploy on Hostinger (recommended)
-
-<p align="center">
-  <a href="https://www.hostinger.com/web-apps-hosting?REFERRALCODE=WACRMHOST">
-    <img src="./.github/assets/hostinger-deploy.png" alt="Ship your Node.js app in one click — Deploy to Hostinger" width="1000">
-  </a>
-</p>
-<p align="center">
-  <a href="https://wacrm.tech/docs/deployment-hostinger">
-    <img src="https://img.shields.io/badge/Step--by--step_guide-wacrm.tech%2Fdocs-111?style=for-the-badge" alt="Step-by-step guide" height="44">
-  </a>
-</p>
-
-**wacrm is built to run on [Hostinger](https://www.hostinger.com/web-apps-hosting?REFERRALCODE=WACRMHOST).**
-It's the path we test, document, and recommend — and the fastest way
-to get a production-grade CRM live without owning a VPS or a
-Kubernetes cluster.
-
-### Why Hostinger?
-
-| | |
-|---|---|
-| **One-click Git deploy** | Connect your fork, push to `main`, Hostinger builds and ships it. No SSH, no Docker, no CI to wire up — this repo's own `main` deploys this way. |
-| **Managed Node.js** | Next.js 16 (App Router, server actions, ISR) runs out of the box on [Premium, Business, and Cloud](https://www.hostinger.com/web-apps-hosting?REFERRALCODE=WACRMHOST) shared plans. You don't manage Node versions, processes, or reverse proxies. |
-| **Free SSL + free domain** | Automatic Let's Encrypt on your custom domain (or a free one included with annual plans). HTTPS is on by default — required for the WhatsApp Business webhook. |
-| **Global CDN + LiteSpeed** | Static assets cached at the edge, dynamic routes served from LiteSpeed. Snappy dashboards out of the box, no Cloudflare setup required. |
-| **Env vars + logs in hPanel** | Set `SUPABASE_*`, `WHATSAPP_*`, and `ENCRYPTION_KEY` from the panel — no `.env` on the server. Live application logs in the same UI. |
-| **DDoS protection + daily backups** | Built-in, no add-ons. The webhook endpoint is a public target — having protection at the edge matters. |
-| **Cheaper than a VPS** | Plans start at a few dollars a month — order-of-magnitude less than a comparable managed Node.js host, and you don't pay extra for the database (that's Supabase). |
-| **24/7 human support** | Live chat support in 20+ languages — useful when your CRM is the thing your team relies on to talk to customers. |
-
-### The 60-second version
-
-1. **Fork** this repo on GitHub.
-2. In **hPanel → Websites → Create**, pick **Node.js** and connect
-   your fork.
-3. Paste your Supabase + Meta env vars into hPanel.
-4. Push to `main`. Hostinger builds and serves it. Done.
-
-Full walkthrough with screenshots:
-**[wacrm.tech/docs/deployment-hostinger](https://wacrm.tech/docs/deployment-hostinger)**.
-
-> _Note: wacrm is MIT-licensed and runs anywhere Node.js does
-> (Vercel, Railway, your own VPS). Hostinger is recommended, not
-> required._
-
-## Documentation
-
-Full self-host documentation — Supabase migrations, WhatsApp Business
-API config, and production deploy — lives at
-**[wacrm.tech/docs](https://wacrm.tech/docs)**
-(source: [ArnasDon/wacrm-site](https://github.com/ArnasDon/wacrm-site)).
-
-Key pages:
-- [Getting started](https://wacrm.tech/docs/getting-started)
-- [Supabase setup](https://wacrm.tech/docs/supabase-setup)
-- [WhatsApp setup](https://wacrm.tech/docs/whatsapp-setup)
-- [Environment variables](https://wacrm.tech/docs/environment-variables)
-- [Deploy on Hostinger](https://wacrm.tech/docs/deployment-hostinger)
-- [Architecture](https://wacrm.tech/docs/architecture)
-- [Troubleshooting](https://wacrm.tech/docs/troubleshooting)
+Built phase by phase. **This is Phase 1: skeleton + data model.**
 
 ## Stack
+Python 3.12 · FastAPI (async) · SQLModel + Postgres · Pydantic AI (later)
+· OpenRouter LLM · Twilio WhatsApp (later) · APScheduler (later).
 
-- **App** — Next.js 16 (App Router), React 19, TypeScript, Tailwind v4.
-- **Data** — Supabase (Postgres + Auth + Storage + RLS).
-- **WhatsApp** — Meta Cloud API (official WhatsApp Business API).
+## Run it (Phase 1)
 
-## Contributing
+```bash
+# 1. Start Postgres
+docker compose up -d db
 
-This is a template, not a collaborative product — the expected flow is
-fork → customise → deploy, **not** upstream contribution. Bug reports
-and security issues are welcome; feature PRs often belong in your fork
-rather than here. Details in
-[`CONTRIBUTING.md`](./CONTRIBUTING.md) and
-[`.github/SECURITY.md`](./.github/SECURITY.md).
+# 2. Python env + deps
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
 
-## License
+# 3. Config
+cp .env.example .env        # defaults already match docker-compose
 
-[MIT](./LICENSE). Fork it, brand it, host it.
+# 4. Run the API
+uvicorn app.main:app --reload
+```
+
+Then:
+
+```bash
+curl http://localhost:8000/health
+# {"status":"ok","env":"development","db":true}
+```
+
+On first start the app creates all tables and seeds one demo merchant
+(**Chez Amélie**) with a small catalog, two services, and Mon–Sat
+availability.
+
+## Verify the seed
+
+```bash
+docker exec -it wa_agent_db psql -U postgres -d wa_agent \
+  -c "select name, whatsapp_number, bot_enabled from merchant;"
+docker exec -it wa_agent_db psql -U postgres -d wa_agent \
+  -c "select name, price_fcfa, in_stock from catalogitem;"
+```
+
+## What's here
+```
+app/
+  config.py   # pydantic-settings; all secrets via .env
+  db.py       # async engine, session, create_all bootstrap
+  models.py   # merchant, catalog_item, service, availability_rule,
+              # conversation, message, order, appointment, scheduled_message
+  seed.py     # idempotent demo merchant
+  main.py     # FastAPI app + /health
+docker-compose.yml
+```
+
+## Phase 2 — Twilio inbound webhook
+
+Endpoint: `POST /webhook/whatsapp`. It validates `X-Twilio-Signature`,
+parses the form body, resolves the merchant by `To` and the conversation
+by (merchant, `From`), stores the inbound message, and echoes a reply.
+
+### Test it with your own phone (Twilio Sandbox + ngrok)
+
+1. **Run the app** (see above) so it's live on `localhost:8000`.
+2. **Expose it** with ngrok:
+   ```bash
+   ngrok http 8000
+   ```
+   Copy the `https://<id>.ngrok-free.app` URL. Put it in `.env` as
+   `PUBLIC_BASE_URL` (the signature check rebuilds the signed URL from
+   it), and restart the app.
+3. **Twilio Console → Messaging → Try it out → WhatsApp Sandbox:**
+   - Join the sandbox: send `join <your-sandbox-word>` from WhatsApp to
+     the sandbox number (`+1 415 523 8886`).
+   - Under **Sandbox settings**, set **"When a message comes in"** to
+     `https://<id>.ngrok-free.app/webhook/whatsapp` (**HTTP POST**).
+4. Put your Twilio **Auth Token** in `.env` as `TWILIO_AUTH_TOKEN` so
+   signature validation is enforced (with it blank, validation is skipped
+   for local testing). Restart.
+5. **Message the sandbox number from your phone** — e.g. *"c'est combien
+   la robe rouge?"*. You'll get the echo back, and the message is stored:
+   ```bash
+   docker exec -it wa_agent_db psql -U postgres -d wa_agent \
+     -c "select role, body from message order by created_at;"
+   ```
+
+> The seeded merchant's `whatsapp_number` is the shared sandbox number,
+> so your test routes to **Chez Amélie**. In production each merchant has
+> its own number and `To` disambiguates the tenant.
+
+## Phases 3–5 — the agent, tools, and scheduler
+
+- **Phase 3 — Agent (Pydantic AI + OpenRouter).** `app/agent.py` builds one
+  agent; `app/prompts.py` assembles a per-merchant system prompt (base role
+  + `system_prompt_extra` + compact catalog/services + running summary +
+  a short window of recent turns — never the full transcript). The model
+  is `OPENROUTER_MODEL` (default `qwen/qwen3-30b-a3b`), swappable via env.
+  Replies go out via the Twilio REST API from a background task, so the
+  webhook returns instantly (no timeout risk).
+- **Phase 4 — Tools + state machine.** Typed tools: `get_catalog`,
+  `get_services`, `check_availability`, `capture_order`, `book_appointment`,
+  `escalate_to_human`. Order prices are re-priced from the catalog (the LLM
+  is never trusted on money). Conversation `state` moves
+  browsing → ordering / booking / paused_for_human. **Kill switch:** if
+  `merchant.bot_enabled` is false OR the conversation is
+  `paused_for_human`, the inbound is stored and the agent stays silent.
+- **Phase 5 — Scheduler.** `app/scheduler.py` runs an APScheduler job every
+  60s that sends due `scheduled_message` rows (e.g. appointment reminders
+  created by `book_appointment`). ⚠️ Business-initiated messages **outside
+  the 24h window require an approved WhatsApp template** — that path is
+  stubbed and clearly marked in the code.
+
+### How the loop works
+```
+Twilio POST /webhook/whatsapp
+  → validate signature → parse form
+  → resolve merchant by To, conversation by (merchant, From)
+  → store inbound message
+  → if bot disabled OR paused_for_human: stop (store only)
+  → else: return 200 now; in the background run the agent (tools + state),
+    send the reply via Twilio REST, persist it
+```
+
+## Roadmap
+1. Skeleton + data model ✅
+2. Twilio inbound webhook ✅
+3. Agent (single message) ✅
+4. Tools + state machine ✅
+5. Scheduler ✅  — **feature-complete for v1**
+
+## Notes / what I'd harden before scale
+- **Timezones:** the app uses naive UTC everywhere to avoid aware/naive
+  comparison bugs. Availability is treated as wall-clock; revisit real TZ
+  handling (WAT) before multi-region use.
+- **Migrations:** schema is created with `create_all`. Add **Alembic**
+  before altering a live schema.
+- **Reminders outside 24h:** need an approved WhatsApp template (flagged
+  in `app/scheduler.py`).
+- **Background tasks** are in-process; for real load move agent runs to a
+  worker queue (e.g. Arq/Celery) so a restart can't drop an in-flight reply.
